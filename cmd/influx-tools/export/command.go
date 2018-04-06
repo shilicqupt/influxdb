@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/influxdata/influxdb/cmd/influx-tools/internal/format"
-	"github.com/influxdata/influxdb/cmd/influx-tools/internal/format/line"
+	"github.com/influxdata/influxdb/cmd/influx-tools/internal/format/binary"
 	"github.com/influxdata/influxdb/cmd/influxd/run"
 	"github.com/influxdata/influxdb/logger"
 	"github.com/influxdata/influxdb/models"
@@ -81,8 +81,8 @@ func (cmd *Command) Run(args []string) (err error) {
 	}
 	defer rs.Close()
 
-	wr := line.NewWriter(os.Stdout)
-	format.WriteBucket(rs, wr)
+	wr := binary.NewWriter(os.Stdout, cmd.database, cmd.rp, cmd.shardDuration)
+	format.WriteBucket(wr, models.MinNanoTime, models.MaxNanoTime, rs)
 
 	return wr.Close()
 }

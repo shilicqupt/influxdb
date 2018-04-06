@@ -65,7 +65,6 @@ func (w *Writer) WriteCursor(cur tsdb.Cursor) {
 	default:
 		panic(fmt.Sprintf("unreachable: %T", c))
 	}
-	cur.Close()
 }
 
 func (w *Writer) writeIntegerPoints(cur tsdb.IntegerBatchCursor) {

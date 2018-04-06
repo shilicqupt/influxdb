@@ -18,7 +18,13 @@ type BucketWriter interface {
 	Close() error
 }
 
-func WriteBucket(rs *storage.ResultSet, w BucketWriter) error {
+func WriteBucket(w Writer, start, end int64, rs *storage.ResultSet) error {
+	bw, err := w.NewBucket(start, end)
+	if err != nil {
+		return err
+	}
+	defer bw.Close()
+
 	for rs.Next() {
 		cur := rs.Cursor()
 		if cur == nil {
@@ -26,11 +32,12 @@ func WriteBucket(rs *storage.ResultSet, w BucketWriter) error {
 			continue
 		}
 
-		w.WriteSeries(rs.Name(), rs.Field(), rs.Tags())
-		w.WriteCursor(cur)
+		bw.WriteSeries(rs.Name(), rs.Field(), rs.Tags())
+		bw.WriteCursor(cur)
+		cur.Close()
 
-		if w.Err() != nil {
-			return w.Err()
+		if bw.Err() != nil {
+			return bw.Err()
 		}
 	}
 	return nil
