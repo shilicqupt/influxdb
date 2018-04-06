@@ -83,6 +83,7 @@ func (cmd *Command) Run(args []string) (err error) {
 
 	wr := binary.NewWriter(os.Stdout, cmd.database, cmd.rp, cmd.shardDuration)
 	format.WriteBucket(wr, models.MinNanoTime, models.MaxNanoTime, rs)
+	wr.WriteStats(os.Stderr)
 
 	return wr.Close()
 }

@@ -27,6 +27,13 @@ type Writer struct {
 		seriesHeader SeriesHeader
 		seriesFooter SeriesFooter
 	}
+
+	stats struct {
+		series int
+		counts [8]struct {
+			series, values int
+		}
+	}
 }
 
 func NewWriter(w io.Writer, database, rp string, duration time.Duration) *Writer {
@@ -35,6 +42,16 @@ func NewWriter(w io.Writer, database, rp string, duration time.Duration) *Writer
 		wr = bufio.NewWriter(w)
 	}
 	return &Writer{w: wr, db: database, rp: rp, duration: duration}
+}
+
+func (w *Writer) WriteStats(o io.Writer) {
+	fmt.Fprintf(o, "total series: %d\n", w.stats.series)
+
+	for i := 0; i < 5; i++ {
+		ft := FieldType(i)
+		fmt.Fprintf(o, "%s unique series: %d\n", ft, w.stats.counts[i].series)
+		fmt.Fprintf(o, "%s total values : %d\n", ft, w.stats.counts[i].values)
+	}
 }
 
 func (w *Writer) NewBucket(start, end int64) (format.BucketWriter, error) {
@@ -94,13 +111,17 @@ func (w *Writer) writeBucketFooter() {
 }
 
 func (w *Writer) writeSeriesHeader(key, field []byte, ft FieldType) {
+	w.stats.series++
+	w.stats.counts[ft&7].series++
+
 	w.msg.seriesHeader.SeriesKey = key
 	w.msg.seriesHeader.Field = field
 	w.msg.seriesHeader.FieldType = ft
 	w.writeTypeMessage(SeriesHeaderType, &w.msg.seriesHeader)
 }
 
-func (w *Writer) writeSeriesFooter() {
+func (w *Writer) writeSeriesFooter(ft FieldType, count int) {
+	w.stats.counts[ft&7].values += count
 	w.writeTypeMessage(SeriesFooterType, &w.msg.seriesFooter)
 }
 
@@ -183,88 +204,111 @@ func (bw *bucketWriter) WriteCursor(cur tsdb.Cursor) {
 	default:
 		panic(fmt.Sprintf("unreachable: %T", c))
 	}
-
-	bw.w.writeSeriesFooter()
 }
 
 func (bw *bucketWriter) writeIntegerPoints(cur tsdb.IntegerBatchCursor) {
 	bw.w.writeSeriesHeader(bw.key, bw.field, IntegerFieldType)
 
-	var msg IntegerPoints
+	var (
+		msg IntegerPoints
+		c   int
+	)
 	for {
 		ts, vs := cur.Next()
 		if len(ts) == 0 {
 			break
 		}
 
+		c += len(ts)
 		msg.Timestamps = ts
 		msg.Values = vs
 		bw.w.writeTypeMessage(IntegerPointsType, &msg)
 	}
+	bw.w.writeSeriesFooter(IntegerFieldType, c)
 }
 
 func (bw *bucketWriter) writeFloatPoints(cur tsdb.FloatBatchCursor) {
 	bw.w.writeSeriesHeader(bw.key, bw.field, FloatFieldType)
 
-	var msg FloatPoints
+	var (
+		msg FloatPoints
+		c   int
+	)
 	for {
 		ts, vs := cur.Next()
 		if len(ts) == 0 {
 			break
 		}
 
+		c += len(ts)
 		msg.Timestamps = ts
 		msg.Values = vs
 		bw.w.writeTypeMessage(FloatPointsType, &msg)
 	}
+	bw.w.writeSeriesFooter(FloatFieldType, c)
 }
 
 func (bw *bucketWriter) writeUnsignedPoints(cur tsdb.UnsignedBatchCursor) {
 	bw.w.writeSeriesHeader(bw.key, bw.field, UnsignedFieldType)
 
-	var msg UnsignedPoints
+	var (
+		msg UnsignedPoints
+		c   int
+	)
 	for {
 		ts, vs := cur.Next()
 		if len(ts) == 0 {
 			break
 		}
 
+		c += len(ts)
 		msg.Timestamps = ts
 		msg.Values = vs
 		bw.w.writeTypeMessage(UnsignedPointsType, &msg)
 	}
+	bw.w.writeSeriesFooter(UnsignedFieldType, c)
 }
 
 func (bw *bucketWriter) writeBooleanPoints(cur tsdb.BooleanBatchCursor) {
 	bw.w.writeSeriesHeader(bw.key, bw.field, BooleanFieldType)
 
-	var msg BooleanPoints
+	var (
+		msg BooleanPoints
+		c   int
+	)
 	for {
 		ts, vs := cur.Next()
 		if len(ts) == 0 {
 			break
 		}
 
+		c += len(ts)
 		msg.Timestamps = ts
 		msg.Values = vs
 		bw.w.writeTypeMessage(BooleanPointsType, &msg)
 	}
+	bw.w.writeSeriesFooter(BooleanFieldType, c)
 }
 
 func (bw *bucketWriter) writeStringPoints(cur tsdb.StringBatchCursor) {
 	bw.w.writeSeriesHeader(bw.key, bw.field, StringFieldType)
 
-	var msg StringPoints
+	var (
+		msg StringPoints
+		c   int
+	)
 	for {
 		ts, vs := cur.Next()
 		if len(ts) == 0 {
 			break
 		}
 
+		c += len(ts)
 		msg.Timestamps = ts
 		msg.Values = vs
 		bw.w.writeTypeMessage(StringPointsType, &msg)
 	}
+	bw.w.writeSeriesFooter(StringFieldType, c)
 }
 
 func (bw *bucketWriter) Close() error {
