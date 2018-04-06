@@ -578,18 +578,14 @@ Options:
     -portable 
             Required to activate portable restore mode.  
     -host  <host:port>
-            The host to connect to and perform a snapshot of. Defaults to '127.0.0.1:8088'.
+            The host to connect to where the data will be restored. Defaults to '127.0.0.1:8088'.
     -db    <name>
             Identifies the database from the backup that will be restored.
-    -database    <name>
-            (Long form for -db) Identifies the database from the backup that will be restored.
     -newdb <name>
             The name of the database into which the archived data will be imported on the target system.
             If not given, then the value of -db is used.  The new database name must be unique to the target system.
     -rp    <name>
             Identifies the retention policy from the backup that will be restored.  Requires that -db is set.
-    -retention    <name>
-            (Long form for -rp) Identifies the retention policy from the backup that will be restored.  Requires that -db is set.
     -newrp <name>
             The name of the retention policy that will be created on the target system. Requires that -rp is set.
             If not given, the value of -rp is used.

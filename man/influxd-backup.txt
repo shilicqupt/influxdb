@@ -20,19 +20,13 @@ OPTIONS
   Generate backup files in a format that is portable between different influxdb products.
 
 -host <host:port>::
-  The host to connect to and perform a snapshot of. Defaults to '127.0.0.1:8088'.
+  The host to connect to that will be backed up. Defaults to 127.0.0.1:8088.
 
 -db <name>::
   The database to backup. Required.
 
--database <name>::
-  (Long form for -db) The database to backup. Required.
-
 -rp <name>::
   The retention policy to backup. Optional.
-
--retention <name>::
-  (Long form for -rp) The retention policy to backup. Optional.
 
 -shard <id>::
   The shard id to backup. Optional. If specified, '-retention <name>' is required.

@@ -582,22 +582,20 @@ func (cmd *Command) requestInfo(request *snapshotter.Request) (*snapshotter.Resp
 // printUsage prints the usage message to STDERR.
 func (cmd *Command) printUsage() {
 	fmt.Fprintf(cmd.Stdout, `
-Downloads a file level age-based snapshot of a data node and saves it to disk.
+Downloads a snapshot of a data node and saves it to disk. NOTE: newer versions of influxd are 
+not compatible with older versions.  When running the backup, be sure to use the same version 
+of the influxd binary as the server that you are backing up.  
 
 Usage: influxd backup [flags] PATH
 
     -portable
             Generate backup files in a format that is portable between different influxdb products.
     -host <host:port>
-            The host to connect to snapshot. Defaults to 127.0.0.1:8088.
+            The host to connect to that will be backed up. Defaults to 127.0.0.1:8088.
     -db <name>
             The database to backup.
-    -database <name>
-            (Long form for -db) The database to backup.
     -rp <name>
             Optional. The retention policy to backup.
-    -retention <name>
-            (Long form for -rp) Optional. The retention policy to backup.
     -shard <id>
             Optional. The shard id to backup. If specified, retention is required.
     -start <2015-12-24T08:12:23Z>
