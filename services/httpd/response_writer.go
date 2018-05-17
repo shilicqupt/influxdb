@@ -10,12 +10,15 @@ import (
 
 	"github.com/influxdata/influxdb/models"
 	"github.com/tinylib/msgp/msgp"
+	"strings"
 )
 
 // ResponseWriter is an interface for writing a response.
 type ResponseWriter interface {
 	// WriteResponse writes a response.
 	WriteResponse(resp Response) (int, error)
+
+	WriteOpenTSDBResponse(resp Response, tsQuery *TSQuery, queryType string) (int, error)
 
 	http.ResponseWriter
 }
@@ -50,6 +53,7 @@ func WriteError(w ResponseWriter, err error) (int, error) {
 type responseWriter struct {
 	formatter interface {
 		WriteResponse(resp Response) (int, error)
+		WriteOpenTSDBResponse(resp Response, tsQuery *TSQuery, queryType string) (int, error)
 	}
 	http.ResponseWriter
 }
@@ -57,6 +61,10 @@ type responseWriter struct {
 // WriteResponse writes the response using the formatter.
 func (w *responseWriter) WriteResponse(resp Response) (int, error) {
 	return w.formatter.WriteResponse(resp)
+}
+
+func (w *responseWriter) WriteOpenTSDBResponse(resp Response, tsQuery *TSQuery, queryType string) (int, error) {
+	return w.formatter.WriteOpenTSDBResponse(resp, tsQuery, queryType)
 }
 
 // Flush flushes the ResponseWriter if it has a Flush() method.
@@ -86,6 +94,34 @@ func (w *jsonFormatter) WriteResponse(resp Response) (n int, err error) {
 		b, err = json.MarshalIndent(resp, "", "    ")
 	} else {
 		b, err = json.Marshal(resp)
+	}
+
+	if err != nil {
+		n, err = io.WriteString(w, err.Error())
+	} else {
+		n, err = w.Write(b)
+	}
+
+	w.Write([]byte("\n"))
+	n++
+	return n, err
+}
+
+func (w *jsonFormatter) WriteOpenTSDBResponse(resp Response, tsQuery *TSQuery, queryType string) (n int, err error) {
+	var b []byte
+	var result interface{}
+	if queryType == QUERY {
+		result = convertToSimpleSpan(resp, tsQuery)
+	} else if queryType == SUGGEST_METRIC || queryType == SUGGEST_TAGK {
+		result = convertToList(resp)
+	} else if queryType == SUGGEST_TAGV {
+		result = convertToTagV(resp)
+	}
+
+	if w.Pretty {
+		b, err = json.MarshalIndent(result, "", "    ")
+	} else {
+		b, err = json.Marshal(result)
 	}
 
 	if err != nil {
@@ -190,6 +226,11 @@ func (w *csvFormatter) WriteResponse(resp Response) (n int, err error) {
 	return n, csv.Error()
 }
 
+func (w *csvFormatter) WriteOpenTSDBResponse(resp Response, tsQuery *TSQuery, queryType string) (n int, err error) {
+	//TODO
+	return 0, nil
+}
+
 type msgpackFormatter struct {
 	io.Writer
 }
@@ -290,4 +331,72 @@ func (f *msgpackFormatter) WriteResponse(resp Response) (n int, err error) {
 		}
 	}
 	return 0, nil
+}
+
+func (f *msgpackFormatter) WriteOpenTSDBResponse(resp Response, tsQuery *TSQuery, queryType string) (n int, err error) {
+	//TODO
+	return 0, nil
+}
+
+func convertToSimpleSpan(resp Response, tsQuery *TSQuery) []*SimpleSpan {
+	simpleSpans := make([]*SimpleSpan, 0)
+	results := resp.Results
+	for _, result := range results {
+		for _, series := range result.Series {
+			defaultTag := make(map[string]string, 1)
+			if len(series.Tags) > 0 {
+				defaultTag = series.Tags
+			} else {
+				for _, subQuery := range tsQuery.TsSubQuery {
+					if strings.Contains(subQuery.Metric, series.Name) && len(subQuery.Tags) > 0 {
+						defaultTag = subQuery.Tags
+					}
+				}
+			}
+			dps := make(map[string]interface{}, 0)
+			for _, value := range series.Values {
+				dps[strconv.FormatInt(int64(value[0].(int64)), 10)] = value[len(value)-1]
+			}
+			simpleSpan := &SimpleSpan{Metric: series.Name, Dps: dps, Tags: defaultTag}
+			for _, subQuery := range tsQuery.TsSubQuery {
+				if strings.Contains(subQuery.Metric, series.Name) && len(subQuery.Tags) > 0 {
+					for key, value := range subQuery.Tags {
+						if _, ok := simpleSpan.Tags[key]; ok {
+							continue
+						} else {
+							simpleSpan.Tags[key] = value
+						}
+					}
+				}
+			}
+			simpleSpans = append(simpleSpans, simpleSpan)
+		}
+	}
+	return simpleSpans
+}
+
+func convertToList(resp Response) []string {
+	res := make([]string, 0)
+	results := resp.Results
+	for _, result := range results {
+		for _, series := range result.Series {
+			for _, value := range series.Values {
+				res = append(res, value[0].(string))
+			}
+		}
+	}
+	return res
+}
+
+func convertToTagV(resp Response) []string {
+	res := make([]string, 0)
+	results := resp.Results
+	for _, result := range results {
+		for _, series := range result.Series {
+			for _, value := range series.Values {
+				res = append(res, value[1].(string))
+			}
+		}
+	}
+	return res
 }

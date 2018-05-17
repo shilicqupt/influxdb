@@ -177,6 +177,22 @@ func NewHandler(c Config) *Handler {
 			"prometheus-metrics",
 			"GET", "/metrics", false, true, promhttp.Handler().ServeHTTP,
 		},
+		Route{ // Ping w/ status
+			"opentsdb-query",
+			"POST", "/api/query", false, true, h.serveOpenTSDBQuery,
+		},
+		Route{ // Ping w/ status
+			"opentsdb-suggest-metric",
+			"GET", "/api/suggestmetric", false, true, h.serveOpenTSDBSuggest,
+		},
+		Route{ // Ping w/ status
+			"opentsdb-suggest-tagk",
+			"GET", "/api/suggesttagk", false, true, h.serveOpenTSDBSuggest,
+		},
+		Route{ // Ping w/ status
+			"opentsdb-suggest-tagv",
+			"GET", "/api/suggesttagv", false, true, h.serveOpenTSDBSuggest,
+		},
 	}...)
 
 	return h
